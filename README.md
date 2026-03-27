@@ -42,8 +42,10 @@ Our repo is built mainly using PyTorch, so installing torch has higher priority.
 A simulated light field image of Fly Neurons based on the 2pSAM system, with an input resolution of 512×512×13 (X×Y×Angle, pixel) and an output resolution of 512×512×39 (X×Y×Z, pixel). The training and reconstruction process is expected to take 80 seconds on a computing platform equipped with the NVIDIA-A100-SXM4 GPU.
 
 ### Reconstruction with Digital Adaptive Optics (DAO):
-* Place the input LFs (Light Fields) folder (containing TIFF format files) into `./Projections/` and the PSFs (Point Spread Functions) folder (containing TIFF format files) into `./PSF/` .
-* Set the file paths of LFs and PSFs in the `reconLF.py` file according to your local directory structure.
+* Download the required Zernike basis and PSFs in phase space via the link: https://drive.google.com/drive/folders/1BUlpoeEX6Y9qSb2VCT8l-owbe4nqWXAp?usp=sharing
+* Place phase space PSFs folder (`/PSFEx_zoom4_31dz1_N13`) and Zernike basis folder (`/Phase`) into `./PSF/` .
+* Place the input LFs (Light Fields) folder (containing TIFF format files) into `./Projections/`.
+* Set the file paths of LFs and PSFs in the `reconLF_DAO.py` file according to your local directory structure.
 * Run `reconLF_DAO.py` to perform reconstruction.
 * Reconstruction results will be saved to `./Results/`.
 
