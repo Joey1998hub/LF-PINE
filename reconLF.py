@@ -85,7 +85,7 @@ for frame in range(frames):
         for n in range(Nnum):
             angle = np.random.choice(np.arange(Nnum),size=1,replace=False)
             psf = psfs[angle,...] if is_fine else coarse_psfs[angle,...] # U,Z,X,Y
-            fp = ut.generate_fps(psf,xguess,fp_res) # U,Z,X,Y
+            if render_times>1: fp = ut.generate_fps(psf,xguess,fp_res)# U,Z,X,Y
             render_count = render_times if is_fine else 1
             for i in range(render_count):
                 z_start = z_interval*i
@@ -95,7 +95,8 @@ for frame in range(frames):
                 out = torch.squeeze(model(z_start,z_end,is_fine))
                 raw[z_start:z_end,...] = out
                 xguess[z_start:z_end,...] = ut.upsample(out,size=xguess_res) if xguess_res!=x_res else out
-                fp[:,z_start:z_end,...] = ut.generate_fps(psf[:,z_start:z_end,...],xguess[z_start:z_end,...],fp_res)
+                if render_times>1: fp[:,z_start:z_end,...] = ut.generate_fps(psf[:,z_start:z_end,...],xguess[z_start:z_end,...],fp_res)
+                else: fp = ut.generate_fps(psf,xguess,fp_res)
                 simulation = torch.mean(fp,dim=-3)
 
                 if mpg_weight>0: noisy_sim = ut.GenMixedNoisyLF(simulation,proj[angle,...])
