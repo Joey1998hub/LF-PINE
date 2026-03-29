@@ -47,6 +47,7 @@ A simulated light field image of Fly Neurons based on the 2pSAM system, with an 
 * Place the input LFs (Light Fields) folder (containing TIFF format files) into `./Projections/`.
 * Set the file paths of LFs and PSFs in the `reconLF_DAO.py` file according to your local directory structure.
 * Run `reconLF_DAO.py` to perform reconstruction.
+* If you want to perform reconstruction without DAO, set `polynum = 0`.
 * Reconstruction results will be saved to `./Results/`.
 
 #### Demo Results
