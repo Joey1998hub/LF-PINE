@@ -22,8 +22,8 @@ upfactor = 1
 Nnum = 13
 
 lr = 1e-3 # 5e-5 for realdata, 1e-4 for syndata
-epochs = 100 # default 120
-decay_step = 80 # default 100
+epochs = 80 # default 120
+decay_step = 70 # default 100
 coarse_epoch = 40
 
 mpg_weight = 0 # range:0-10
