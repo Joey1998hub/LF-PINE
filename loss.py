@@ -20,7 +20,7 @@ def xy_tv(x):
     w_tv = torch.pow((x[:,:,1:]-x[:,:,:-1]),2).mean()
     return h_tv+w_tv
 
-def nllp_loss(fp, lf):
+def pnll_loss(fp, lf):
     eps = 1e-8
     loss = torch.mean(fp - lf * torch.log(fp + eps))
     
