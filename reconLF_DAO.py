@@ -1,7 +1,7 @@
 import math;import sys;import os;import time
 from model import LF_PINE_DAO,ZernikeFitter
 import torch;from torch import optim, nn
-from loss import fftloss,zloss,posloss,xy_tv
+from loss import fftloss,zloss,posloss,xy_tv,pnll_loss
 from Utils.DAO_utils import genCircle,generate_psf_ab
 from Utils.dataio import PhaseData
 import numpy as np
@@ -25,6 +25,7 @@ decay_step = 200
 
 ztv_weight = 0 
 xytv_weight = 0 
+pnll_weight = 1e3
 
 polynum = 36
 is_debackground = 0
@@ -101,6 +102,7 @@ for epoch in range(epochs):
 
             if ztv_weight>0 : loss += zloss(raw)*ztv_weight
             if xytv_weight>0: loss += xy_tv(raw)*xytv_weight
+            if pnll_weight>0: loss += pnll_loss(simulation,proj[angle,...])*pnll_weight    
 
             optimizer.zero_grad()
             loss.backward()
