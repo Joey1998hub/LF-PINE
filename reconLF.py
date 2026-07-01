@@ -1,7 +1,7 @@
 from torch import optim, nn
 from model import LF_PINE_c2f
 from Utils.dataio import MicroData
-from loss import fftloss,zloss,posloss
+from loss import fftloss,zloss,posloss,pnll_loss
 import torch.nn.functional as F
 import time;import os
 import Utils.utils as ut
@@ -26,9 +26,10 @@ epochs = 80 # default 120
 decay_step = 70 # default 100
 coarse_epoch = 40
 
-mpg_weight = 0 # range:0-10
-fft_weight = 10 # range:0-10
+mpg_weight = 0 # range:0-100
+fft_weight = 1 # range:0-10
 ztv_weight = 10 # range:0-10
+pnll_weight = 1e3 # range:0-1e4
 is_debackground = 0 # default 0
 is_dynamic = 0 # default 0
 ##############################
@@ -108,6 +109,7 @@ for frame in range(frames):
                 if ztv_weight>0: loss += zloss(raw)*ztv_weight
                 if fft_weight>0: loss += fftloss(simulation,gt)*fft_weight
                 if mpg_weight>0: loss += fftloss(noisy_sim.squeeze(0),gt)*mpg_weight
+                if pnll_weight>0: loss += pnll_loss(simulation,gt)*pnll_weight
 
                 optimizer.zero_grad()
                 loss.backward()
