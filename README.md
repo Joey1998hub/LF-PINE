@@ -72,12 +72,11 @@ parts and concatenate them in numerical order to reconstruct
 Copy the extracted `Projections/`, `PSF/` and `Samples/` directories into
 this repository root, preserving the subdirectory names shown above.
 These contain the measurements, PSFs, Zernike bases and ground-truth
-volumes required by the examples. Data included in older repository
-revisions may not match the paths in the current settings.
+volumes required by the examples. All example datasets are distributed
+through Zenodo.
 
 The `.gitignore` file excludes local datasets, reconstruction outputs and
-Python caches from new commits. It does not remove files already tracked in
-the repository.
+Python caches from new commits.
 
 ### Run reconstruction
 
