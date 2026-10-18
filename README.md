@@ -41,6 +41,7 @@ model.py                 # hash-table volume networks + Zernike phase fitter
 loss.py                  # loss functions (mse/fft/mpg-fft/zTV/positivity/NLLP)
 Utils/                   # data loading and forward-model utilities
 settings/                # per-dataset JSON settings
+examples/highna_case8/    # bundled HighNA10 case 8 data
 Projections/             # light-field measurements (input data)
   BPAE_cell/             #   real BPAE cell data (35 views, 1024x1024)
   HighNA10/              #   simulated high-NA data, 10 cases (13 views)
@@ -61,28 +62,13 @@ Results/                 # reconstruction outputs (created at run time)
 
 ## Quick start
 
-### Run the bundled HighNA10 case 8
-
-One complete HighNA10 example is included in
-[`examples/highna_case8/`](examples/highna_case8/README.md), with its LF
-measurement, all 13 PSFs and ground-truth volume (about 236 MiB of losslessly
-compressed TIFF data). Clone or download this repository, install the
-dependencies above, and run from the repository root:
+HighNA10 case 8 is bundled in [`examples/highna_case8/`](examples/highna_case8/),
+including the LF measurement, 13 PSFs and ground truth (about 236 MiB).
+Run from the repository root:
 
 ```bash
-python recon.py --config examples/highna_case8/config.json
+python recon.py --config settings/highna_case8.json
 ```
-
-This uses the original HighNA optimization settings (100 epochs, 100
-iterations per epoch). For a short CUDA execution check using the same data:
-
-```bash
-python recon.py --config examples/highna_case8/quick_check.json
-```
-
-The quick check uses one iteration with depth batching; its output is
-undertrained and is intended only to verify execution. The other datasets
-are available from Zenodo as described below.
 
 ### Prepare the datasets
 
