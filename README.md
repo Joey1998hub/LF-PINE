@@ -61,6 +61,29 @@ Results/                 # reconstruction outputs (created at run time)
 
 ## Quick start
 
+### Run the bundled HighNA10 case 8
+
+One complete HighNA10 example is included in
+[`examples/highna_case8/`](examples/highna_case8/README.md), with its LF
+measurement, all 13 PSFs and ground-truth volume (about 236 MiB of losslessly
+compressed TIFF data). Clone or download this repository, install the
+dependencies above, and run from the repository root:
+
+```bash
+python recon.py --config examples/highna_case8/config.json
+```
+
+This uses the original HighNA optimization settings (100 epochs, 100
+iterations per epoch). For a short CUDA execution check using the same data:
+
+```bash
+python recon.py --config examples/highna_case8/quick_check.json
+```
+
+The quick check uses one iteration with depth batching; its output is
+undertrained and is intended only to verify execution. The other datasets
+are available from Zenodo as described below.
+
 ### Prepare the datasets
 
 Download the datasets from [Zenodo: LF-PINE](https://doi.org/10.5281/zenodo.23034780)
@@ -72,8 +95,8 @@ parts and concatenate them in numerical order to reconstruct
 Copy the extracted `Projections/`, `PSF/` and `Samples/` directories into
 this repository root, preserving the subdirectory names shown above.
 These contain the measurements, PSFs, Zernike bases and ground-truth
-volumes required by the examples. All example datasets are distributed
-through Zenodo.
+volumes required by the examples. The full dataset collection is distributed
+through Zenodo; the bundled case 8 can run with the files already in GitHub.
 
 The `.gitignore` file excludes local datasets, reconstruction outputs and
 Python caches from new commits.

@@ -16,6 +16,10 @@ venv/
 *.pth
 *.pt
 
+# Bundled HighNA10 case 8 example (lossless TIFFs)
+!/examples/highna_case8/data/*.tif
+!/examples/highna_case8/data/psf/*.tif
+
 # Local credentials, editor settings and publishing workspace
 .env
 .env.*
