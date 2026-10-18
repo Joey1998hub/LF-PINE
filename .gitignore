@@ -1,0 +1,25 @@
+# Python caches and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Measurements, PSFs, ground truth and reconstruction outputs
+/Projections/
+/PSF/
+/Samples/
+/GT/
+/Results/
+*.tif
+*.tiff
+*.pth
+*.pt
+
+# Local credentials, editor settings and publishing workspace
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+/.github-update/

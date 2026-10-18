@@ -2,13 +2,13 @@ import numpy as np;import torch
 import torch.nn.functional as F
 from torch.fft import fft2,ifft2
 import tifffile as tf
-import os;import math
+import os
 
-def calBacknoise(img,bins=100):
+def calBacknoise(img,bins=256):
     hist_max = torch.mean(img).item()
     hist_min = torch.min(img).item()
     hist = torch.histc(img,bins,hist_min,hist_max)
-    backnoise_index = torch.max(hist,0)[1]+1
+    backnoise_index = torch.max(hist,0)[1]
     backnoise = (backnoise_index/bins)*(hist_max-hist_min)+hist_min
 
     return backnoise
@@ -19,52 +19,26 @@ def GenMixedNoisyLF(input, target):
     if target.ndim == 3: target = torch.unsqueeze(target,dim=0)
     Nnum = input.shape[-3]
 
-    total_scale = 1e3/torch.mean(target)
-    input = input*total_scale; target = target*total_scale
-
-    # input = F.softplus(input,threshold=1)
+    input = F.softplus(input,threshold=1)
     signal = input.clone().detach()
-    poisson_noise = torch.zeros_like(signal)
-    out = torch.zeros_like(input)
 
     for i in range(Nnum):
-        clean = signal[:,i,...]; noisy =  target[:,i,...]
+        clean = signal[:,i,...]; noisy = target[:,i,...]
         noise = noisy-clean # [B,1,H,W]
 
         miu = calBacknoise(noisy)
         dark = noisy.clone(); dark[dark>miu] = miu
         count = (noisy<=miu).sum().item()
         var_gs = torch.sum((dark-miu)**2)/count
-        var_pos = torch.mean((noise)**2)-var_gs
 
-        if var_pos<=0: 
-            out[:,i,...] = input[:,i,...] + torch.randn_like(input[:,i,...])*(var_gs**0.5) + miu
+        var = F.softplus(torch.mean((noise)**2)-var_gs,threshold=1)
+        scale = torch.mean(signal[:,i,...])/(var+1e-6)
 
-        else: 
-            var_pos = F.softplus(var_pos,threshold=1e-6)
-            scale = torch.mean(signal[:,i,...])/(var_pos+1e-6)
-            poisson_noise[:,i,...] = torch.poisson(signal[:,i,...]*scale)/scale - signal[:,i,...]
-            out[:,i,...] = input[:,i,...] + poisson_noise[:,i,...] + torch.randn_like(input[:,i,...])*(var_gs**0.5) + miu
+        input[:,i,...] = input[:,i,...]*scale
+        input[:,i,...] = torch.poisson(input[:,i,...])
+        input[:,i,...] = input[:,i,...] / scale
 
-    return out/total_scale
-
-#MicroNeRF utils
-def generate_fp(psf,sample,fp_res=None):
-    z,ra,ca = sample.shape
-    _,rb,cb =psf.shape
-
-    r = ra+rb-1
-    p1 = (r-ra)/2
-
-    a1 = torch.zeros([z,r,r],device=sample.device)
-    b1 = torch.zeros([z,r,r],device=sample.device)
-
-    a1[:,0:ra,0:ca] = sample
-    b1[:,0:rb,0:cb] = psf
-    conv1 = ifft2(fft2(a1)*fft2(b1))
-    projections = torch.abs(conv1[:,int(p1):int(r-p1),int(p1):int(r-p1)])
-    if fp_res is not None and projections.shape[-1]!=fp_res: projections = upsample(projections,size=fp_res)
-    return projections
+    return input
 
 def generate_fps(psf,sample,fp_res=None):
     """
@@ -85,64 +59,39 @@ def generate_fps(psf,sample,fp_res=None):
     a1[...,0:ra,0:ca] = sample
     b1[...,0:rb,0:cb] = torch.unsqueeze(psf,0)
     conv1 = ifft2(fft2(a1)*fft2(b1))
-    projections = torch.real(conv1[...,int(p1):int(r-p1),int(p1):int(r-p1)]).squeeze(0)
+    projections = torch.abs(conv1[...,int(p1):int(r-p1),int(p1):int(r-p1)]).squeeze(0)
     if fp_res is not None and projections.shape[-1]!=fp_res: projections = upsample(projections,size=fp_res)
     return projections
 
-def generate_fps_loop(psf,sample):
-    if sample.ndim == 3: sample = sample.unsqueeze(0).unsqueeze(0)
-    if sample.ndim == 4: sample = sample.unsqueeze(1)
-    t,_,z,ra,ca = sample.shape
-    u,_,rb,cb =psf.shape
+def generate_fps_fft(sample_buffer,psf_fft_buffer,sample_res,fp_res=None):
+    """
+    sample_buffer size: t,1,z,r,r, padded sample buffer
+    psf_fft_buffer size: 1,u,z,r,r, FFT of padded PSF buffer
+    sample_res: output crop size before optional fp_res resizing
+    """
+    r = sample_buffer.shape[-1]
+    p1 = (r-sample_res)/2
 
-    r = ra+rb-1
-    p1 = (r-ra)/2
-
-    a1 = torch.zeros([t,1,z,r,r],device=sample.device)
-    b1 = torch.zeros([1,1,z,r,r],device=sample.device)
-
-    a1[...,0:ra,0:ca] = sample
-    projections = []
-    for i in range(u):
-        b1[...,0:rb,0:cb] = torch.unsqueeze(psf[i:i+1,...],0)
-        conv1 = ifft2(fft2(a1)*fft2(b1))
-        projections.append(torch.real(conv1[...,int(p1):int(r-p1),int(p1):int(r-p1)]))
-    projections = torch.cat(projections,dim=1)
+    conv1 = ifft2(fft2(sample_buffer)*psf_fft_buffer)
+    projections = torch.abs(conv1[...,int(p1):int(p1+sample_res),int(p1):int(p1+sample_res)]).squeeze(0)
+    if fp_res is not None and projections.shape[-1]!=fp_res: projections = upsample(projections,size=fp_res)
     return projections
 
-def generate_fp_fft(psf_fft,sample):
-    # same as DAOSLIMIT
-
-    z,ra,ca = sample.shape
-    _,r,_ =psf_fft.shape
-
-    p1 = (r-ra)/2
-    a1 = torch.zeros(r,r).to(sample.device)
-    projections = []
-
-    for i in range(z):
-        a1[0:ra,0:ca] = sample[i,:,:]
-        conv1 = ifft2(fft2(a1)*psf_fft[i,:,:])
-        projections.append(torch.real(conv1[int(p1):int(r-p1),int(p1):int(r-p1)]))
-
-    return torch.stack(projections,dim=0)
-
-def normal(input):
-    out = (input-torch.min(input))/(torch.max(input)-torch.min(input))
-    return out
-
-def load_uint16(path):
-    input = tf.imread(path)
-    input = input.astype(np.float32)
-    out = torch.from_numpy(input)
-    return out
-
-def denoise(img):
-    base_noise = torch.min(torch.mean(img,dim=0))
-    img = img-base_noise
-    print('Base Noise:',base_noise.item())
-    img = torch.where(img>=0,img,torch.zeros_like(img))
-    return img
+def generate_psfs_fft(psfs,sample_res):
+    """
+    psfs size: u,z,x,y
+    sample_res: sample x/y size before padding
+    """
+    u,z,psf_res,_ = psfs.shape
+    fft_res = sample_res+psf_res-1
+    psfs_fft = torch.zeros((u,z,fft_res,fft_res),device=psfs.device,dtype=torch.complex64)
+    padded_psf = torch.zeros((z,fft_res,fft_res),device=psfs.device,dtype=psfs.dtype)
+    with torch.no_grad():
+        for angle_id in range(u):
+            padded_psf.zero_()
+            padded_psf[:,0:psf_res,0:psf_res] = psfs[angle_id]
+            psfs_fft[angle_id] = fft2(padded_psf)
+    return psfs_fft, fft_res
 
 def load_psfs(PSF_dir,Nnum):
 
@@ -163,7 +112,8 @@ def Adjust_lr(optimizer,iter,decay_every,lr_decay,lr_init):
     lr = lr_init * (lr_decay ** (iter // decay_every))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-    # print('Learning Rate:',lr)
+    print('Learning Rate:',lr)
+
     return optimizer
 
 def save_results(xguess,save_dir,save_name):
@@ -190,56 +140,3 @@ def upsample(img,dims=2,factor=None,size=None,mode=None):
     else: raise ValueError('Invalid dims')
 
     return img
-
-def upsample_complex(img,factor=None,size=None):
-    upreal = upsample(img.real,factor,size)
-    upimag = upsample(img.imag,factor,size)
-    up_img = torch.zeros([img.shape[0],upreal.shape[1],upreal.shape[2]],dtype=torch.cfloat)
-    up_img.real = upreal;up_img.imag = upimag
-
-    return up_img
-
-def print_model_size(model):
-    total = sum([param.nelement() for param in model.parameters()])
-    print('Number of params: %.5fM' % (total / 1e6))
-
-def save_temp(simulation,gt,save_dir,epoch,angle):
-    diff = torch.abs(simulation-gt)
-    temp = torch.stack([simulation,diff])
-    temp_path = os.path.join(save_dir,save_dir+'_'+str(epoch)+'_'+str(angle)+'_diff.tif')
-    save_results(temp,save_dir,temp_path) 
-
-def log(writer,epoch,content=None,img=None):
-    if content is not None: writer.add_scalar('Content Loss',content,epoch)
-    if img is not None: writer.add_image('Center Slice',normal(img),epoch)
-
-def psnr(original, reconstructed, max_value=1):
-
-    # Calculate Mean Squared Error (MSE)
-    mse = torch.mean((original - reconstructed) ** 2)
-
-    # Calculate PSNR
-    psnr_value = 10 * torch.log10((max_value ** 2) / mse)
-
-    return psnr_value
-
-def load_psfs_1P(PSF_dir,Nnum,radius):
-    uv_res = math.sqrt(Nnum)
-    center_index = [(uv_res-1)/2,(uv_res-1)/2]
-    postfix = os.listdir(PSF_dir)[0].split('.')[1]
-    
-    psfs = []
-    for i in range(int(uv_res*uv_res)):
-        index = [i%uv_res,int(i/uv_res)]
-        distance = np.power(np.power(index[0]-center_index[0],2)+np.power(index[1]-center_index[1],2),0.5)
-        if distance <= radius:
-            psf_path = os.path.join(PSF_dir,'psf_'+str(i+1)+'.'+postfix)
-            psf = torch.from_numpy(tf.imread(psf_path).astype(np.float32))
-            psfs.append(psf)
-            print('Load PSF:',psf_path,'Distance:',distance,'PSF max:',torch.max(psf).item())
-
-    uv_num = len(psfs)
-    print('PSFs Used:',uv_num)
-    psfs = torch.stack(psfs,dim=0).squeeze()
-
-    return psfs

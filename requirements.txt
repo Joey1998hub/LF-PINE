@@ -1,0 +1,5 @@
+torch>=2.0
+numpy
+tifffile
+kornia>=0.7
+torchmetrics>=1.0
