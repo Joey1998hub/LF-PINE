@@ -9,7 +9,7 @@ def calBacknoise(img,bins=256):
     hist_min = torch.min(img).item()
     hist = torch.histc(img,bins,hist_min,hist_max)
     backnoise_index = torch.max(hist,0)[1]
-    backnoise = (backnoise_index/bins)*(hist_max-hist_min)+hist_min
+    backnoise = ((backnoise_index+1)/bins)*(hist_max-hist_min)+hist_min
 
     return backnoise
 
@@ -23,20 +23,21 @@ def GenMixedNoisyLF(input, target):
     signal = input.clone().detach()
 
     for i in range(Nnum):
-        clean = signal[:,i,...]; noisy = target[:,i,...]
+        clean = signal[:,i,...]; noisy =  target[:,i,...]
         noise = noisy-clean # [B,1,H,W]
 
-        miu = calBacknoise(noisy)
+        miu = calBacknoise(noisy,bins=100)
         dark = noisy.clone(); dark[dark>miu] = miu
         count = (noisy<=miu).sum().item()
-        var_gs = torch.sum((dark-miu)**2)/count
+        var_gs = torch.sum((dark-miu)**2)/max(count, 1)
 
         var = F.softplus(torch.mean((noise)**2)-var_gs,threshold=1)
         scale = torch.mean(signal[:,i,...])/(var+1e-6)
 
         input[:,i,...] = input[:,i,...]*scale
-        input[:,i,...] = torch.poisson(input[:,i,...])
+        input[:,i,...] = torch.poisson(input[:,i,...]) 
         input[:,i,...] = input[:,i,...] / scale
+        input[:,i,...] = input[:,i,...] + torch.randn_like(clean) * torch.sqrt(var_gs)
 
     return input
 
